@@ -8,8 +8,8 @@ export default async function handler(req, res) {
 
   try {
     const body = {
-      filter: { property: "Activo", checkbox: { equals: true } },
-      sorts: [{ property: "Prioridad", direction: "descending" }],
+      // 👇 QUITÉ EL FILTRO POR "Activo" PARA NO LIARLA MÁS
+      // Si luego quieres reactivar el filtro, lo hacemos, pero primero que funcione.
       page_size: 100
     };
 
@@ -25,15 +25,48 @@ export default async function handler(req, res) {
 
     const json = await r.json();
 
-    const messages = json.results.map(page => {
-      const f = page.properties?.Frase;
-      const parts = f?.title || f?.rich_text || [];
-      return parts.map(x => x.plain_text).join("");
-    }).filter(Boolean);
+    // 1) Sacar textos de la columna "Frase" o del título que haya
+    const raw = (json.results || []).flatMap(page => {
+      const props = page.properties || {};
+      const f = props.Frase;
 
-    res.status(200).json({ messages });
+      let txt = "";
+
+      if (f && f.type === "title") {
+        txt = (f.title || []).map(x => x.plain_text).join("");
+      } else {
+        const anyTitle = Object.values(props).find(p => p.type === "title");
+        if (anyTitle) {
+          txt = (anyTitle.title || []).map(x => x.plain_text).join("");
+        }
+      }
+
+      txt = String(txt || "").trim();
+      if (!txt) return [];
+
+      // 2) Si alguien metió varias frases en una sola celda separadas por rayas, las partimos
+      const parts = txt
+        .split(/[-—]{2,}/g)   // "——", "-----", etc
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      return parts.length ? parts : [txt];
+    });
+
+    // 3) Quitar duplicados
+    const seen = new Set();
+    const messages = [];
+    for (const m of raw) {
+      const t = String(m || "").trim();
+      if (!t) continue;
+      if (seen.has(t)) continue;
+      seen.add(t);
+      messages.push(t);
+    }
+
+    return res.status(200).json({ messages });
 
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    return res.status(500).json({ error: String(e) });
   }
 }
