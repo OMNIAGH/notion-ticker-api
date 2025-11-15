@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticker Frases Notion</title>
+  <style>
+    body { background: #222; color: #fff; font-family: sans-serif; }
+    #ticker { background: #222; color: #fff; white-space: nowrap; width: 100vw; overflow: hidden; position: fixed; top: 0; left: 0; height: 48px; display: flex; align-items: center; border-bottom: 2px solid #0cf; font-size: 1.3em; }
+    #ticker-content { display: inline-block; padding-left: 100vw; animation: ticker-move 20s linear infinite; }
+    @keyframes ticker-move {
+      from { transform: translateX(0); }
+      to { transform: translateX(-100vw); }
+    }
+  </style>
+</head>
+<body>
+  <div id="ticker"><span id="ticker-content">Cargando frases...</span></div>
+  <script>
+    // Cambia el endpoint si lo necesitas desde el parámetro de URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const endpoint = urlParams.get('endpoint') || 'https://notion-ticker-leandro.vercel.app/api/ticker';
+
+    async function loadTicker() {
+      try {
+        const res = await fetch(endpoint);
+        const json = await res.json();
+        const frases = json.messages || [];
+        document.getElementById('ticker-content').textContent = frases.join(' • ');
+      } catch(e) {
+        document.getElementById('ticker-content').textContent = `Error: ${e}`;
+      }
+    }
+    loadTicker();
+  </script>
+</body>
+</html>
